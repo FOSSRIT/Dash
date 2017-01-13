@@ -81,9 +81,9 @@ public:
      *      filePath =          The path to the file.
      *      mesh =              The AssImp mesh object to pull data from.
      */
-    this( string filePath, const(aiMesh*) mesh )
+    this( Resource filePath, const(aiMesh*) mesh )
     {
-        super( Resource( filePath ) );
+        super( filePath );
         int floatsPerVertex, vertexSize;
         float[] outputData;
         uint[] indices;
@@ -131,7 +131,7 @@ public:
                 }
                 if( maxBonesAttached > 4 )
                 {
-                    logWarning( filePath, " has more than 4 bones for some vertex, data will be truncated. (has ", maxBonesAttached, ")" );
+                    warningf( "%s has more than 4 bones for some vertex, data will be truncated. (has %s)", filePath, maxBonesAttached );
                 }
 
                 // For each vertex on each face
@@ -221,7 +221,7 @@ public:
         else
         {
             // Did not load
-            logFatal( "Mesh not loaded: ", filePath );
+            fatalf( "Mesh not loaded: %s", filePath );
         }
 
         // make and bind the VAO
@@ -295,10 +295,10 @@ public:
         // Add mesh
         if( scene.mNumMeshes > 0 )
         {
-            auto tempMesh = new MeshAsset( resource.fullPath, scene.mMeshes[ 0 ] );
+            auto tempMesh = new MeshAsset( resource, scene.mMeshes[ 0 ] );
 
             if( scene.mNumAnimations > 0 )
-                tempMesh.animationData = new AnimationData( scene.mAnimations, scene.mNumAnimations, scene.mMeshes[ 0 ], scene.mRootNode );
+                tempMesh.animationData = new AnimationData( resource, scene.mAnimations, scene.mNumAnimations, scene.mMeshes[ 0 ], scene.mRootNode );
 
             // Copy attributes
             _glVertexArray = tempMesh._glVertexArray;
@@ -311,7 +311,7 @@ public:
         }
         else
         {
-            logWarning( "Assimp did not contain mesh data, ensure you are loading a valid mesh." );
+            warning( "Assimp did not contain mesh data, ensure you are loading a valid mesh." );
             return;
         }
 

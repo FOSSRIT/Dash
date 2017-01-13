@@ -70,7 +70,7 @@ public:
                 }
             }
 
-            logFatal( "Deffered rendering Frame Buffer was not initialized correctly. Error: ", mapFramebufferError(status) );
+            fatalf( "Deffered rendering Frame Buffer was not initialized correctly. Error: %s", mapFramebufferError(status) );
             assert(false);
         }
     }
@@ -136,7 +136,7 @@ public:
     {
         if( !DGame.instance.activeScene )
         {
-            logWarning( "No active scene." );
+            warning( "No active scene." );
             return;
         }
 
@@ -144,7 +144,7 @@ public:
 
         if( !scene.camera )
         {
-            logWarning( "No camera on active scene." );
+            warning( "No camera on active scene." );
             return;
         }
 
@@ -313,7 +313,7 @@ public:
 
                 if( !ambientLights.empty )
                 {
-                    logWarning( "Only one ambient light per scene is utilized." );
+                    warning( "Only one ambient light per scene is utilized." );
                 }
             }
 
@@ -390,13 +390,11 @@ public:
             glUseProgram( shader.programID );
             glBindVertexArray( Assets.unitSquare.glVertexArray );
 
-            foreach( ui; uis )
-            {
-                shader.bindUniformMatrix4fv( shader.WorldProj,
-                                             scene.camera.orthogonalMatrix * ui.scaleMat );
-                shader.bindUI( ui );
-                glDrawElements( GL_TRIANGLES, Assets.unitSquare.numVertices, GL_UNSIGNED_INT, null );
-            }
+			auto ui = scene.ui;
+            shader.bindUniformMatrix4fv( shader.WorldProj,
+                                         scene.camera.orthogonalMatrix * ui.scaleMat );
+            shader.bindUI( ui );
+            glDrawElements( GL_TRIANGLES, Assets.unitSquare.numVertices, GL_UNSIGNED_INT, null );
 
             glBindVertexArray(0);
         }
@@ -431,7 +429,11 @@ public:
 
         glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-        uiPass();
+        //ui is currently broken on Linux
+        //TODO: Repair the UI on Linux systems
+        version(linux){}
+        else
+            uiPass();
 
         // put it on the screen
         swapBuffers();
@@ -439,6 +441,5 @@ public:
         // clean up
         glBindVertexArray(0);
         glUseProgram(0);
-        uis = [];
     }
 }

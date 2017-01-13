@@ -1,7 +1,6 @@
 module dash.utility.data.serialization;
 import dash.utility.data.yaml;
-import dash.utility.resources;
-import dash.utility.math;
+import dash.utility.resources, dash.utility.math, dash.utility.output;
 
 import vibe.data.json, vibe.data.bson;
 import std.typecons: Tuple, tuple;
@@ -37,7 +36,7 @@ Tuple!( T, Resource ) deserializeFileByName( T )( string fileName, Serialization
 
     auto files = fileName.dirName.scanDirectory( fileName.baseName ~ ".*" );
     return files.empty
-        ? tuple( T.init, Resource( "" ) )
+        ? tuple( T.init, internalResource )
         : tuple( deserializeFile!T( files.front ), files.front );
 }
 
@@ -66,23 +65,31 @@ T deserializeFile( T )( Resource file, SerializationMode mode = SerializationMod
 
     T handleYaml()
     {
-        return deserializeYaml!T( Loader.fromString( cast(char[])file.readText() ).load() );
+        return deserializeYaml!T( Loader( file.fullPath ).load() );
     }
 
-    final switch( mode ) with( SerializationMode )
+    try
     {
-        case Json: return handleJson();
-        case Bson: return handleBson();
-        case Yaml: return handleYaml();
-        case Default:
-            switch( file.extension.toLower )
-            {
-                case ".json": return handleJson();
-                case ".bson": return handleBson();
-                case ".yaml":
-                case ".yml":  return handleYaml();
-                default: throw new Exception( "File extension " ~ file.extension.toLower ~ " not supported." );
-            }
+        final switch( mode ) with( SerializationMode )
+        {
+            case Json: return handleJson();
+            case Bson: return handleBson();
+            case Yaml: return handleYaml();
+            case Default:
+                switch( file.extension.toLower )
+                {
+                    case ".json": return handleJson();
+                    case ".bson": return handleBson();
+                    case ".yaml":
+                    case ".yml":  return handleYaml();
+                    default: throw new Exception( "File extension " ~ file.extension.toLower ~ " not supported." );
+                }
+        }
+    }
+    catch( Exception e )
+    {
+        errorf( "Error deserializing file %s to type %s: %s", file.fileName, T.stringof, e.msg );
+        return T.init;
     }
 }
 
@@ -113,27 +120,34 @@ T[] deserializeMultiFile( T )( Resource file, SerializationMode mode = Serializa
     {
         import std.algorithm: map;
         import std.array: array;
-        return Loader
-            .fromString( cast(char[])file.readText() )
+        return Loader( file.fullPath )
             .loadAll()
             .map!( node => node.deserializeYaml!T() )
             .array();
     }
 
-    final switch( mode ) with( SerializationMode )
+    try
     {
-        case Json: return handleJson();
-        case Bson: return handleBson();
-        case Yaml: return handleYaml();
-        case Default:
-            switch( file.extension.toLower )
-            {
-                case ".json": return handleJson();
-                case ".bson": return handleBson();
-                case ".yaml":
-                case ".yml":  return handleYaml();
-                default: throw new Exception( "File extension " ~ file.extension.toLower ~ " not supported." );
-            }
+        final switch( mode ) with( SerializationMode )
+        {
+            case Json: return handleJson();
+            case Bson: return handleBson();
+            case Yaml: return handleYaml();
+            case Default:
+                switch( file.extension.toLower )
+                {
+                    case ".json": return handleJson();
+                    case ".bson": return handleBson();
+                    case ".yaml":
+                    case ".yml":  return handleYaml();
+                    default: throw new Exception( "File extension " ~ file.extension.toLower ~ " not supported." );
+                }
+        }
+    }
+    catch( Exception e )
+    {
+        errorf( "Error deserializing file %s to type %s: %s", file.fileName, T.stringof, e.msg );
+        return [];
     }
 }
 
@@ -166,21 +180,28 @@ template serializeToFile( bool prettyPrint = true )
             Dumper( outPath ).dump( serializeToYaml( t ) );
         }
 
-        final switch( mode ) with( SerializationMode )
+        try
         {
-            case Json: handleJson(); break;
-            case Bson: handleBson(); break;
-            case Yaml: handleYaml(); break;
-            case Default:
-                switch( outPath.extension.toLower )
-                {
-                    case ".json": handleJson(); break;
-                    case ".bson": handleBson(); break;
-                    case ".yaml":
-                    case ".yml":  handleYaml(); break;
-                    default: throw new Exception( "File extension " ~ outPath.extension.toLower ~ " not supported." );
-                }
-                break;
+            final switch( mode ) with( SerializationMode )
+            {
+                case Json: handleJson(); break;
+                case Bson: handleBson(); break;
+                case Yaml: handleYaml(); break;
+                case Default:
+                    switch( outPath.extension.toLower )
+                    {
+                        case ".json": handleJson(); break;
+                        case ".bson": handleBson(); break;
+                        case ".yaml":
+                        case ".yml":  handleYaml(); break;
+                        default: throw new Exception( "File extension " ~ outPath.extension.toLower ~ " not supported." );
+                    }
+                    break;
+            }
+        }
+        catch( Exception e )
+        {
+            errorf( "Error serializing %s to file %s: %s", T.stringof, file.fileName, e.msg );
         }
     }
 }
@@ -188,8 +209,8 @@ template serializeToFile( bool prettyPrint = true )
 /// Supported serialization formats.
 enum serializationFormats = tuple( "Json", "Bson", "Yaml" );
 
-/// Type to use when defining custom 
-struct CustomSerializer( _T, _Rep, alias _ser, alias _deser, alias _check = (_) => true )
+/// Type to use when defining custom
+struct CustomSerializer( _T, _Rep, alias _ser, alias _deser, alias _check )
     if( is( typeof( _ser( _T.init ) ) == _Rep ) &&
         is( typeof( _deser( _Rep.init ) ) == _T ) &&
         is( typeof( _check( _Rep.init ) ) == bool ) )
@@ -232,8 +253,8 @@ template serializerFor( T )
 
 /// A tuple of all supported serializers
 alias customSerializers = TypeTuple!(
-    CustomSerializer!( vec2f, float[], vec => vec.vector[], arr => vec2f( arr ), arr => arr.length == 2 ),
-    CustomSerializer!( vec3f, float[], vec => vec.vector[], arr => vec3f( arr ), arr => arr.length == 3 ),
+    CustomSerializer!( vec2f, float[], vec => [ vec.x, vec.y ], arr => vec2f( arr ), arr => arr.length == 2 ),
+    CustomSerializer!( vec3f, float[], vec => [ vec.x, vec.y, vec.z ], arr => vec3f( arr ), arr => arr.length == 3 ),
     CustomSerializer!( quatf, float[], vec => vec.toEulerAngles.vector[], arr => fromEulerAngles( arr ), arr => arr.length == 3 ),
 );
 static assert( hasSerializer!vec2f );

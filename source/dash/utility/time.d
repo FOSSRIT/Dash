@@ -53,13 +53,16 @@ public:
         assert( onMainThread, "Must call Time.update from main thread." );
 
         updateTime();
+
+        import dash.core.dgame: DGame;
+        DGame.instance.editor.send( "dash:perf:frametime", deltaTime );
     }
 
 private:
     this()
-	{
-		delta = total = Duration.zero;
-	}
+    {
+        delta = total = Duration.zero;
+    }
 }
 
 private:
@@ -93,20 +96,20 @@ void updateTime()
     }
 
     delta = cast(Duration)( cur - prev );
-    
+
     prev = cur;
     cur = sw.peek();
 
     // Pass to values
     Time.total = cast(Duration)cur;
     Time.delta = delta;
-    
+
     // Update framerate
     ++frameCount;
     second += delta;
     if( second >= 1.seconds )
     {
-        logDebug( "Framerate: ", frameCount );
+        tracef( "Framerate: %d", frameCount );
         second = Duration.zero;
         frameCount = 0;
     }

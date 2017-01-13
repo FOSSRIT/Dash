@@ -1,6 +1,7 @@
 /**
 * TODO
 */
+deprecated( "Please use SDL adapter instead." )
 module dash.graphics.adapters.win32gl;
 
 version( Windows ):
@@ -49,9 +50,15 @@ private LRESULT WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam )
             break;
         // On mouse scroll
         case WM_MOUSEWHEEL:
-            Mouse.setAxisState( Mouse.Axes.ScrollWheel, Mouse.getAxisState( Mouse.Axes.ScrollWheel ) + ( ( cast(int)wParam >> 16 ) / 120 ) );
+            Mouse.setAxisState( Mouse.Axes.ScrollWheel, Mouse.getAxisState( Mouse.Axes.ScrollWheel ) + ( HIWORD( wParam ) / WHEEL_DELTA ) );
             break;
             // If no change, send to default windows handler
+        // On mouse move
+        case WM_MOUSEMOVE:
+            Mouse.setAxisState( Mouse.Axes.XPos, LOWORD( wParam ) );
+            Mouse.setAxisState( Mouse.Axes.YPos, HIWORD( wParam ) );
+            break;
+
         default:
             return DefWindowProc( hWnd, message, wParam, lParam );
     }
@@ -126,7 +133,7 @@ public:
 
         if( DerelictGL3.loadedVersion < GLVersion.GL40 )
         {
-            logFatal( "Your version of OpenGL is unsupported. Required: GL40 Yours: ", DerelictGL3.loadedVersion );
+            fatalf( "Your version of OpenGL is unsupported. Required: GL40 Yours: %s", DerelictGL3.loadedVersion );
             //throw new Exception( "Unsupported version of OpenGL." );
             return;
         }
@@ -207,7 +214,7 @@ public:
 
         loadProperties();
 
-        if( fullscreen )
+        if( windowType == WindowType.Fullscreen )
         {
             width = screenWidth;
             height = screenHeight;
@@ -218,7 +225,7 @@ public:
             style |= DWS_WINDOWED;
         }
 
-        if( _wasFullscreen != fullscreen )
+        if( _wasFullscreen != ( windowType == WindowType.Fullscreen ) )
         {
             SetWindowLong( hWnd, GWL_STYLE, style );
             SetWindowPos( hWnd, null, ( screenWidth - width ) / 2, ( screenHeight - height ) / 2,
@@ -227,7 +234,7 @@ public:
                           SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED );
         }
 
-        _wasFullscreen = fullscreen;
+        _wasFullscreen = ( windowType == WindowType.Fullscreen );
 
         resizeDefferedRenderBuffer();
 
@@ -257,6 +264,7 @@ public:
     */
     override void swapBuffers()
     {
+        auto zone = DashProfiler.startZone( "Swap Buffers" );
         SwapBuffers( deviceContext );
     }
 
@@ -273,7 +281,7 @@ public:
     */
     final void openWindow( bool showWindow )
     {
-        hWnd = CreateWindowEx( 0, DGame.instance.title.ptr, DGame.instance.title.ptr, fullscreen ? DWS_FULLSCREEN : DWS_WINDOWED,
+        hWnd = CreateWindowEx( 0, DGame.instance.title.ptr, DGame.instance.title.ptr, ( windowType == WindowType.Fullscreen ) ? DWS_FULLSCREEN : DWS_WINDOWED,
                                ( screenWidth - width ) / 2, ( screenHeight - height ) / 2, width, height,
                               null, null, hInstance, null );
 

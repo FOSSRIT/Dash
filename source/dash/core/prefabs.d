@@ -30,7 +30,7 @@ public:
             }
             else
             {
-                logWarning( "Prefab ", index, " not found." );
+                warningf( "Prefab %s not found.", index );
                 return null;
             }
         }
@@ -54,7 +54,7 @@ public:
         {
             foreach( fabDesc; res.deserializeMultiFile!( GameObject.Description )() )
             {
-                auto newFab = new Prefab( fabDesc );
+                auto newFab = new Prefab( fabDesc, res );
                 prefabs[ newFab.name ] = newFab;
                 prefabResources[ res ] ~= newFab;
             }
@@ -88,9 +88,10 @@ public:
     GameObject.Description description;
 
     /// Creates a prefab from a description.
-    this( GameObject.Description desc )
+    this( GameObject.Description desc, Resource filePath )
     {
         description = desc;
+        super( filePath );
     }
 
     /**
@@ -99,7 +100,7 @@ public:
      * Returns:
      *  The new GameObject from the Prefab.
      */
-    GameObject createInstance()
+    GameObject createInstance() const
     {
         return GameObject.create( description );
     }

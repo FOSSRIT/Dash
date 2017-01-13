@@ -16,11 +16,8 @@ abstract class Adapter
 private:
     uint _width, _screenWidth;
     uint _height, _screenHeight;
-    bool _fullscreen, _backfaceCulling, _vsync;
-
-protected:
-    // Do not add properties for:
-    UserInterface[] uis;
+    bool _backfaceCulling, _vsync;
+    WindowType _windowType;
 
 public:
     /// Pixel width of the rendering area
@@ -31,12 +28,14 @@ public:
     mixin( Property!_height );
     /// Pixel height of the actual window
     mixin( Property!_screenHeight );
-    /// If the screen properties match the rendering dimensions
-    mixin( Property!_fullscreen );
     /// Hiding backsides of triangles
     mixin( Property!_backfaceCulling );
     /// Vertical Syncing
     mixin( Property!_vsync );
+    /// The type for our main window
+    /// (Fullscreen, FullscreenDesktop, or Windowed)
+    mixin( Property!_windowType );
+
     /**
      * Initializes the Adapter, called in loading
      */
@@ -90,23 +89,14 @@ public:
     /// TODO: Remove in favor of pipelines
     abstract void initializeDeferredRendering();
 
-    /*
-     * Adds a UI to be drawn over the objects in the scene
-     * UIs will be drawn ( and overlap ) in the order they are added
-     */
-    final void addUI( UserInterface ui )
-    {
-        uis ~= ui;
-    }
-
 protected:
     /**
      * Loads rendering properties from Config
      */
     final void loadProperties()
     {
-        fullscreen = config.display.fullscreen;
-        if( fullscreen )
+        windowType = config.display.windowMode;
+        if( windowType == WindowType.Fullscreen)
         {
             width = screenWidth;
             height = screenHeight;

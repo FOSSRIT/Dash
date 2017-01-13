@@ -2,8 +2,9 @@
  * Defines the static class Config, which handles all configuration options.
  */
 module dash.utility.config;
-import dash.utility.resources, dash.utility.output, dash.utility.data;
+import dash.utility.resources, dash.utility.data;
 
+import std.experimental.logger;
 import std.datetime;
 
 /**
@@ -14,6 +15,14 @@ private Config configInst;
 const(Config) config() @property
 {
     return configInst;
+}
+
+enum WindowType
+{
+    Fullscreen,
+    FullscreenWindowed,
+    Windowed,
+    BorderlessWindow
 }
 
 /**
@@ -36,25 +45,32 @@ public:
     static struct LoggerSettings
     {
         @rename( "FilePath" ) @optional
-        string filePath = null;
+        string filePath = "dash.log";
         @rename( "Debug" ) @optional
-        Verbosities debug_ = Verbosities( Verbosity.Debug, Verbosity.Debug );
+        Verbosities debug_ = Verbosities( LogLevel.all, LogLevel.all );
         @rename( "Release" ) @optional
-        Verbosities release = Verbosities( Verbosity.Off, Verbosity.High );
+        Verbosities release = Verbosities( LogLevel.off, LogLevel.error );
+
+        @ignore
+        Verbosities verbosities() const @property pure @safe nothrow @nogc
+        {
+            debug return debug_;
+            else  return release;
+        }
 
         static struct Verbosities
         {
             @rename( "OutputVerbosity" ) @optional @byName
-            Verbosity outputVerbosity = Verbosity.Low;
+            LogLevel outputVerbosity = LogLevel.info;
             @rename( "LoggingVerbosity" ) @optional @byName
-            Verbosity loggingVerbosity = Verbosity.Debug;
+            LogLevel loggingVerbosity = LogLevel.all;
         }
     }
 
     static struct DisplaySettings
     {
-        @rename( "Fullscreen" )
-        bool fullscreen;
+        @rename( "WindowType" ) @optional @byName
+        WindowType windowMode = WindowType.Windowed;
         @rename( "Height" ) @optional
         uint height = 1920;
         @rename( "Width" ) @optional
@@ -67,6 +83,8 @@ public:
         bool backfaceCulling = true;
         @rename( "VSync" ) @optional
         bool vsync = false;
+        @rename( "OpenGL33" ) @optional
+        bool usingGl33 = false;
     }
 
     static struct UserInterfaceSettings
@@ -85,7 +103,7 @@ public:
 
 static:
     @ignore
-    private Resource resource = Resource( "" );
+    private Resource resource = internalResource;
 
     void initialize()
     {
